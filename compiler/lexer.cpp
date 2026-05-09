@@ -1,87 +1,44 @@
-#include <iostream>
-#include <string>
-#include <vector>
+#include "Lexer.hpp"
 #include <cctype>
-#include <unordered_map>
 
-//Enumeração e os tipos de tokens da Odyssey 
-enum TokenType{
-    //Palavras reservadas e tipos de dados
-    T_INT_TYPE, T_STRING_TYPE, T_BOOL_TYPE,
-    T_FUNC, T_RETURN, T_PRINT, T_INPUT, T_FOR, T_WHILE, T_TRUE, T_FALSE, T_NULL,
-
-    //Identificadores e Literais 
-    T_IDENTIFIER, T_NUMBER, T_STRING_LIT,
-
-    //Operadores e Símbolos
-    T_ASSIGN, //=
-    T_PLUS,  //+
-    T_MINUS, //-
-    T_DIVIDE, // /
-    T_MULTIPLY, // *
-    T_EXPONENT, // **
-    T_GRATER, // >
-    T_LESS, // <
-    T_EQUAL, // ==
-    T_NOT_EQUAL, // !=
-    T_GRATER_EQUAL, // >=
-    T_LESS_EQUAL, // <=
-    T_SEMICOLON, // ;
-    T_OPEN_CURLY, // {
-    T_CLOSE_CURLY, // }
-    T_OPEN_PAREN, // (
-    T_CLOSE_PAREN, // )
-
-    //Controle 
-    T_EOF, // Fim do arquivo
-    T_ERROR // Token de erro
-};
-
-//Estrutura que guarda as informações lidas
-struct Token{
-    TokenType type;
-    std::string value;
-    int line;
-};
-
-class Lexer{
-    private:
-        std::string source;
-        int pos;
-        int currentLine; //Aponta a linha do erro 
-
-//Mapa de palavras reservadas
-    std::unordered_map<std::string, TokenType> keywords ={
-    {"int", T_INT_TYPE},
-    {"string", T_STRING_TYPE},
-    {"bool", T_BOOL_TYPE},
-    {"func", T_FUNC},
-    {"return", T_RETURN},
-    {"print", T_PRINT},
-    {"input", T_INPUT},
-    {"for", T_FOR},
-    {"while", T_WHILE},
-    {"true", T_TRUE},
-    {"false", T_FALSE},
-    {"null", T_NULL}
-};
-
+public:
+    //Construtor 
+    Lexer::Lexer(std::string sourceCode){
+        source = sourceCode;
+        pos = 0;
+        currentLine = 1;
+    
+        keywords ={
+            {"int", T_INT_TYPE},
+            {"string", T_STRING_TYPE},
+            {"bool", T_BOOL_TYPE},
+            {"func", T_FUNC},
+            {"return", T_RETURN},
+            {"print", T_PRINT},
+            {"input", T_INPUT},
+            {"for", T_FOR},
+            {"while", T_WHILE},
+            {"true", T_TRUE},
+            {"false", T_FALSE},
+            {"null", T_NULL}
+    };
+}
     //Função para ler caracter sem avanaçar
-    char peek() {
+    char Lexer::peek() {
         if (pos >= source.length()) return '\0';
         return source[pos];
     }
 
     //Função para pegar caracter e avançar
-    char advance() {
+    char Lexer::advance() {
         char c = peek();
         pos++;
         return c;
     }
 
     //Ignorar espaços em branco e quebras de linha
-    void skipWhitespace() {
-        while (isspace(static_cast<unsigned char>(peek()))) {
+    void Lexer::skipWhitespace() {
+        while (pos < source.length() && isspace(static_cast<unsigned char>(peek()))) {
             if (peek() == '\n') {
                 currentLine++; //Conta as linhas 
             }
@@ -89,16 +46,8 @@ class Lexer{
         }
     }
 
-public:
-    //Construtor 
-    Lexer(std::string sourceCode){
-        source = sourceCode;
-        pos = 0;
-        currentLine = 1;
-    }
-
 //Pede a proxíma "palavra"
-Token nextToken(){
+Token Lexer::nextToken(){
     skipWhitespace();
 
         if (pos >= source.length()) {
@@ -108,10 +57,17 @@ Token nextToken(){
     char c = peek();
 
     // identifica simbolos e delimitadores
-    if (c == ';') {
-        advance();
-        return {T_SEMICOLON, ";", currentLine};
+    switch (c){
+        case ';': advance(); return {T_SEMICOLON, ";", currentLine};
+        case '{': advance(); return {T_OPEN_CURLY, "{", currentLine};
+        case '}': advance(); return {T_CLOSE_CURLY, "}", currentLine};
+        case '(': advance(); return {T_OPEN_PAREN, "(", currentLine};
+        case ')': advance(); return {T_CLOSE_PAREN, ")", currentLine};
+        case '+': advance(); return {T_PLUS, "+", currentLine};
+        case '-': advance(); return {T_MINUS, "-", currentLine};
+        case '/': advance(); return {T_DIVIDE, "/", currentLine};
     }
+
     if (c == '=') {
         advance();
 
@@ -121,71 +77,43 @@ Token nextToken(){
         }
         return {T_ASSIGN, "=", currentLine};
     }
-        if (c == '{') {
-            advance();
-            return {T_OPEN_CURLY, "{", current_line};
-        }
-        if (c == '}') {
-            advance();
-            return {T_CLOSE_CURLY, "}", current_line};
-        }
-        if (c == '(') {
-            advance();
-            return {T_OPEN_PAREN, "(", current_line};
-        }
-        if (c == ')') {
-            advance();
-            return {T_CLOSE_PAREN, ")", current_line};
-        }
-        if (c == '+') {
-            advance();
-            return {T_PLUS, "+", current_line};
-        }
-        if (c == '-') {
-            advance();
-            return {T_MINUS, "-", current_line};
-        }
-        if (c == '/') {
-            advance();
-            return {T_DIVIDE, "/", current_line};
-        }
     if ( c == '*') {
         advance();
 
             if (peek() == '*'){ //Olha o próximo caracter
                 advance();
-                return {T_EXPONENT, "**", current_line};
+                return {T_EXPONENT, "**", currentLine};
             }
 
         //Se não for '**', é apenas '*'
-            return {T_MULTIPLY, "*", current_line};
+            return {T_MULTIPLY, "*", currentLine};
     }
     if (c == '>') {
         advance();
 
             if (peek() == '=') {
                 advance();
-                return {T_GRATER_EQUAL, ">=", current_line};
+                return {T_GRATER_EQUAL, ">=", currentLine};
             }
-            return {T_GRATER, ">", current_line};
+            return {T_GRATER, ">", currentLine};
     }
     if (c == '<') {
         advance();
 
             if (peek() == '=') {
                 advance();
-                return {T_LESS_EQUAL, "<=", current_line};
+                return {T_LESS_EQUAL, "<=", currentLine};
             }
-            return {T_LESS, "<", current_line};
+            return {T_LESS, "<", currentLine};
     }
     if (c == '!') {
         advance();
 
             if (peek() == '=') {
                 advance();
-                return {T_NOT_EQUAL, "!=", current_line};
+                return {T_NOT_EQUAL, "!=", currentLine};
             }
-            return {T_ERROR, "!", current_line};
+            return {T_ERROR, "!", currentLine};
     }
 
     //Indentifica números
@@ -194,7 +122,7 @@ Token nextToken(){
             while (isdigit(static_cast<unsigned char>(peek()))) {
                 num += advance();
             }
-            return {T_NUMBER, num, current_line};
+            return {T_NUMBER, num, currentLine};
         }
 
     //Identifica palavras reservadas
@@ -206,10 +134,10 @@ Token nextToken(){
 
             //Verifica se é reservada
             if (keywords.find(word) != keywords.end()) {
-                return {keywords[word], word, current_line};
+                return {keywords[word], word, currentLine};
             }
             //Se não, é variável
-            return {T_IDENTIFIER, word, current_line};
+            return {T_IDENTIFIER, word, currentLine};
         }
 
     //Identifica strings 
@@ -221,12 +149,12 @@ Token nextToken(){
             }
             if (peek() == '"')
                 advance();
-            return {T_STRING_LIT, str, current_line};
+            return {T_STRING_LIT, str, currentLine};
         }
 
     //Erro léxico ou caracter inválido
         std::string errorChar = "";
         errorChar += advance();
-        return {T_ERROR, errorChar, current_line};
+        return {T_ERROR, errorChar, currentLine};
     }
-};
+
