@@ -1,0 +1,10 @@
+int a = 1;
+string s = "oi";
+bool b = true;
+bool c = false;
+null;
+func soma() { return; }
+print(a);
+input(a);
+for (a = 0; a < 10; a = a + 1) { print(a); }
+while (a > 0) { a = a - 1; }
