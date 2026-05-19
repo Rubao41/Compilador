@@ -1,14 +1,13 @@
 #include "Lexer.hpp"
 #include <cctype>
 
-public:
-    //Construtor 
-    Lexer::Lexer(std::string sourceCode){
-        source = sourceCode;
-        pos = 0;
-        currentLine = 1;
-    
-        keywords ={
+//Construtor 
+Lexer::Lexer(std::string sourceCode){
+    source = sourceCode;
+    pos = 0;
+    currentLine = 1;
+
+    keywords ={
             {"int", T_INT_TYPE},
             {"string", T_STRING_TYPE},
             {"bool", T_BOOL_TYPE},
@@ -23,8 +22,8 @@ public:
             {"null", T_NULL}
     };
 }
-    //Função para ler caracter sem avanaçar
-    char Lexer::peek() {
+//Função para ler caracter sem avançar
+char Lexer::peek() {
         if (pos >= source.length()) return '\0';
         return source[pos];
     }
@@ -65,7 +64,37 @@ Token Lexer::nextToken(){
         case ')': advance(); return {T_CLOSE_PAREN, ")", currentLine};
         case '+': advance(); return {T_PLUS, "+", currentLine};
         case '-': advance(); return {T_MINUS, "-", currentLine};
-        case '/': advance(); return {T_DIVIDE, "/", currentLine};
+    }
+
+    if (c == '/') {
+        advance();
+        
+        // Verifica comentário de linha
+        if (peek() == '/') {
+            while (peek() != '\n' && peek() != '\0') {
+                advance();
+            }
+            return nextToken(); // Ignora comentário e pega próximo token
+        }
+        
+        // Verifica comentário de bloco
+        if (peek() == '*') {
+            advance();
+            while (peek() != '\0') {
+                if (peek() == '*' && pos + 1 < source.length() && source[pos + 1] == '/') {
+                    advance(); // pula *
+                    advance(); // pula /
+                    break;
+                }
+                if (peek() == '\n') {
+                    currentLine++;
+                }
+                advance();
+            }
+            return nextToken(); // Ignora comentário e pega próximo token
+        }
+        
+        return {T_DIVIDE, "/", currentLine};
     }
 
     if (c == '=') {
@@ -93,9 +122,9 @@ Token Lexer::nextToken(){
 
             if (peek() == '=') {
                 advance();
-                return {T_GRATER_EQUAL, ">=", currentLine};
+                return {T_GREATER_EQUAL, ">=", currentLine};
             }
-            return {T_GRATER, ">", currentLine};
+            return {T_GREATER, ">", currentLine};
     }
     if (c == '<') {
         advance();
@@ -116,11 +145,22 @@ Token Lexer::nextToken(){
             return {T_ERROR, "!", currentLine};
     }
 
-    //Indentifica números
+    //Identifica números (incluindo decimais)
         if (isdigit(static_cast<unsigned char>(c))) {
             std::string num = "";
             while (isdigit(static_cast<unsigned char>(peek()))) {
                 num += advance();
+            }
+            // Suporta números com ponto flutuante (ex: 3.14)
+            if (peek() == '.' && pos + 1 < source.length() && isdigit(static_cast<unsigned char>(source[pos + 1]))) {
+                num += advance(); // adiciona o ponto
+                while (isdigit(static_cast<unsigned char>(peek()))) {
+                    num += advance();
+                }
+            }
+            // Rejeita números com ponto mas sem dígitos (ex: 3.)
+            if (peek() == '.' && (pos + 1 >= source.length() || !isdigit(static_cast<unsigned char>(source[pos + 1])))) {
+                return {T_NUMBER, num, currentLine};
             }
             return {T_NUMBER, num, currentLine};
         }
@@ -140,12 +180,29 @@ Token Lexer::nextToken(){
             return {T_IDENTIFIER, word, currentLine};
         }
 
-    //Identifica strings 
+    //Identifica strings com suporte a escape sequences
         if (c == '"') {
             std::string str = "";
             advance();
             while (peek() != '"' && peek() != '\0') {
-                str += advance();
+                if (peek() == '\\') {
+                    advance();
+                    char escaped = peek();
+                    switch (escaped) {
+                        case 'n': str += '\n'; break;
+                        case 't': str += '\t'; break;
+                        case 'r': str += '\r'; break;
+                        case '\\': str += '\\'; break;
+                        case '"': str += '"'; break;
+                        default: str += escaped;
+                    }
+                    advance();
+                } else if (peek() == '\n') {
+                    currentLine++;
+                    str += advance();
+                } else {
+                    str += advance();
+                }
             }
             if (peek() == '"')
                 advance();

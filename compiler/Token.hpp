@@ -17,11 +17,11 @@ enum TokenType{
     T_DIVIDE, // /
     T_MULTIPLY, // *
     T_EXPONENT, // **
-    T_GRATER, // >
+    T_GREATER, // >
     T_LESS, // <
     T_EQUAL, // ==
     T_NOT_EQUAL, // !=
-    T_GRATER_EQUAL, // >=
+    T_GREATER_EQUAL, // >=
     T_LESS_EQUAL, // <=
     T_SEMICOLON, // ;
     T_OPEN_CURLY, // {
@@ -47,7 +47,8 @@ inline std::string tokenTypeName(TokenType type){
         "T_STRING_TYPE", 
         "T_BOOL_TYPE",
         "T_FUNC", 
-        "T_PRINT", 
+        "T_RETURN", 
+        "T_PRINT",
         "T_INPUT", 
         "T_FOR", 
         "T_WHILE", 
@@ -63,11 +64,11 @@ inline std::string tokenTypeName(TokenType type){
         "T_DIVIDE", 
         "T_MULTIPLY", 
         "T_EXPONENT",
-        "T_GRATER",
+        "T_GREATER",
         "T_LESS", 
         "T_EQUAL", 
         "T_NOT_EQUAL", 
-        "T_GRATER_EQUAL", 
+        "T_GREATER_EQUAL", 
         "T_LESS_EQUAL", 
         "T_SEMICOLON", 
         "T_OPEN_CURLY", 
