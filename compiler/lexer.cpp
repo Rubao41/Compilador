@@ -1,7 +1,6 @@
 #include "Lexer.hpp"
 #include <cctype>
 
-public:
     //Construtor 
     Lexer::Lexer(std::string sourceCode){
         source = sourceCode;

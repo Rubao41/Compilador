@@ -1,0 +1,3 @@
+int x = 10;
+print("oi");
+while (x >= 1) { x = x - 1; }
