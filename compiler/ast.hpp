@@ -1,29 +1,30 @@
-#pragma once
-#include <memory>
+#include <iostream>
+#include "Lexer.hpp"
 
-struct Node {
-    virtual ~Node() = default;
-};
+int main(){
+    //teste da odyssey For e While
+    std::string codetest = R"(
+    //Teste do while
+    int count = 0;
+    while (count < 3){
+        print(count);
+        count = count + 1;
+    }
 
-struct WhileStmt : Node{
-    std::unique_ptr<Node> condition;
-    std::unique_ptr<Node> body;
+    //Teste do for
+    string salute = "Olá, alunos!";
+    for (int i = 0; i < 2; i = i + 1) {
+        print(salute);
+    }
+)";
 
-    WhileStmt(std::unique_ptr<Node> c, std::unique_ptr<Node> b)
-        : condition(std::move(c)), 
-        body(std::move(b)) {}
-};
+Lexer lexer(codetest);
+Token t;
+std::cout << "--Odyssey--\n";
+do{
+    t = lexer.nextToken();
+    std::cout << "linha " << t.line << "\ttoken: " << tokenTypeName(t.type) << "\tvalor: '" << t.value << "'\n";
+} while (t.type != T_EOF && t.type != T_ERROR);
 
-struct ForStmt : Node{
-    std::unique_ptr<Node> init;
-    std::unique_ptr<Node> condition;
-    std::unique_ptr<Node> increment;
-    std::unique_ptr<Node> body;
-
-    ForStmt(std::unique_ptr<Node> i, std::unique_ptr<Node> c,
-            std::unique_ptr<Node> inc, std::unique_ptr<Node> b)
-            : init(std::move(i)), 
-            condition(std::move(c)),
-            increment(std::move(inc)), 
-            body(std::move(b)) {}
-};
+    return 0;
+}

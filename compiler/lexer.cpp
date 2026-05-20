@@ -24,7 +24,7 @@ Lexer::Lexer(std::string sourceCode){
 }
 //Função para ler caracter sem avançar
 char Lexer::peek() {
-    if (pos >= source.length()) return '\0';
+    if (pos >= (int)source.length()) return '\0';
     return source[pos];
 }
 
@@ -37,25 +37,23 @@ char Lexer::advance() {
 
 //Ignorar espaços em branco e quebras de linha
 void Lexer::skipWhitespace() {
-    while (pos < source.length() && isspace(static_cast<unsigned char>(peek()))) {
-        if (peek() == '\n') {
-            currentLine++; //Conta as linhas 
-        }
+    while (pos < (int)source.length() && isspace(static_cast<unsigned char>(peek()))) {
+        if (peek() == '\n') currentLine++;
         advance();
     }
 }
 
-//Pede a proxíma "palavra"
+//Pede a próxima "palavra"
 Token Lexer::nextToken(){
     skipWhitespace();
 
-    if (pos >= source.length()) {
+    if (pos >= (int)source.length()) {
         return {T_EOF, "EOF", currentLine};
     }
 
     char c = peek();
 
-    // identifica simbolos e delimitadores
+    // símbolos
     switch (c){
         case ';': advance(); return {T_SEMICOLON, ";", currentLine};
         case '{': advance(); return {T_OPEN_CURLY, "{", currentLine};
@@ -66,163 +64,93 @@ Token Lexer::nextToken(){
         case '-': advance(); return {T_MINUS, "-", currentLine};
     }
 
-    // Comentários e divisão
+    // comentários ou divisão
     if (c == '/') {
         advance();
-
-        // comentário de linha
-        if (peek() == '/') {
-            while (peek() != '\n' && peek() != '\0') {
-                advance();
-            }
-            return nextToken();
-        }
-
-        // comentário de bloco
+        if (peek() == '/') { while (peek()!='\n' && peek()!='\0') advance(); return nextToken(); }
         if (peek() == '*') {
             advance();
-            while (peek() != '\0') {
-                if (peek() == '*' && pos + 1 < source.length() && source[pos + 1] == '/') {
-                    advance(); // *
-                    advance(); // /
-                    break;
-                }
-                if (peek() == '\n') currentLine++;
+            while (peek()!='\0') {
+                if (peek()=='*' && pos+1<(int)source.length() && source[pos+1]=='/') { advance(); advance(); break; }
+                if (peek()=='\n') currentLine++;
                 advance();
             }
             return nextToken();
         }
-
         return {T_DIVIDE, "/", currentLine};
     }
 
-    if (c == '=') {
-        advance();
-        if (peek() == '=') { advance(); return {T_EQUAL, "==", currentLine}; }
-        return {T_ASSIGN, "=", currentLine};
-    }
-    if (c == '*') {
-        advance();
-        if (peek() == '*'){ advance(); return {T_EXPONENT, "**", currentLine}; }
-        return {T_MULTIPLY, "*", currentLine};
-    }
-    if (c == '>') {
-        advance();
-        if (peek() == '='){ advance(); return {T_GREATER_EQUAL, ">=", currentLine}; }
-        return {T_GREATER, ">", currentLine};
-    }
-    if (c == '<') {
-        advance();
-        if (peek() == '='){ advance(); return {T_LESS_EQUAL, "<=", currentLine}; }
-        return {T_LESS, "<", currentLine};
-    }
-    if (c == '!') {
-        advance();
-        if (peek() == '='){ advance(); return {T_NOT_EQUAL, "!=", currentLine}; }
-        return {T_ERROR, "!", currentLine};
-    }
+    if (c == '=') { advance(); if (peek()=='='){advance(); return {T_EQUAL,"==",currentLine};} return {T_ASSIGN,"=",currentLine}; }
+    if (c == '*') { advance(); if (peek()=='*'){advance(); return {T_EXPONENT,"**",currentLine};} return {T_MULTIPLY,"*",currentLine}; }
+    if (c == '>') { advance(); if (peek()=='='){advance(); return {T_GREATER_EQUAL,">=",currentLine};} return {T_GREATER,">",currentLine}; }
+    if (c == '<') { advance(); if (peek()=='='){advance(); return {T_LESS_EQUAL,"<=",currentLine};} return {T_LESS,"<",currentLine}; }
+    if (c == '!') { advance(); if (peek()=='='){advance(); return {T_NOT_EQUAL,"!=",currentLine};} return {T_ERROR,"!",currentLine}; }
 
-    // Identifica números (dec, real, hex, bin, octal)
+    // números: dec / real / hex / bin / oct
     if (isdigit(static_cast<unsigned char>(c))) {
         std::string num = "";
 
-        // hex/bin/octal começando com 0x/0b/0o
         if (c == '0') {
             num += advance();
             char p = peek();
 
-            if (p == 'x' || p == 'X') {
+            if (p=='x'||p=='X') {
                 num += advance();
-                if (!isxdigit(static_cast<unsigned char>(peek())))
-                    return {T_ERROR, num, currentLine};
-
-                while (isxdigit(static_cast<unsigned char>(peek())))
-                    num += advance();
-
-                return {T_NUMBER, num, currentLine};
+                if (!isxdigit(static_cast<unsigned char>(peek()))) return {T_ERROR,num,currentLine};
+                while (isxdigit(static_cast<unsigned char>(peek()))) num += advance();
+                return {T_NUMBER,num,currentLine};
             }
-
-            if (p == 'b' || p == 'B') {
+            if (p=='b'||p=='B') {
                 num += advance();
-                if (peek() != '0' && peek() != '1')
-                    return {T_ERROR, num, currentLine};
-
-                while (peek() == '0' || peek() == '1')
-                    num += advance();
-
-                return {T_NUMBER, num, currentLine};
+                if (peek()!='0' && peek()!='1') return {T_ERROR,num,currentLine};
+                while (peek()=='0'||peek()=='1') num += advance();
+                return {T_NUMBER,num,currentLine};
             }
-
-            if (p == 'o' || p == 'O') {
+            if (p=='o'||p=='O') {
                 num += advance();
-                if (peek() < '0' || peek() > '7')
-                    return {T_ERROR, num, currentLine};
-
-                while (peek() >= '0' && peek() <= '7')
-                    num += advance();
-
-                return {T_NUMBER, num, currentLine};
+                if (peek()<'0'||peek()>'7') return {T_ERROR,num,currentLine};
+                while (peek()>='0'&&peek()<='7') num += advance();
+                return {T_NUMBER,num,currentLine};
             }
         }
 
-        // decimal normal
-        while (isdigit(static_cast<unsigned char>(peek())))
+        while (isdigit(static_cast<unsigned char>(peek()))) num += advance();
+
+        if (peek()=='.' && pos+1<(int)source.length() && isdigit(static_cast<unsigned char>(source[pos+1]))) {
             num += advance();
-
-        // real com ponto
-        if (peek() == '.' && pos + 1 < source.length() && isdigit(static_cast<unsigned char>(source[pos + 1]))) {
-            num += advance(); // ponto
-            while (isdigit(static_cast<unsigned char>(peek())))
-                num += advance();
+            while (isdigit(static_cast<unsigned char>(peek()))) num += advance();
         }
-
-        return {T_NUMBER, num, currentLine};
+        return {T_NUMBER,num,currentLine};
     }
 
-    // Identifica palavras reservadas / identificadores
-    if (isalpha(static_cast<unsigned char>(c)) || c == '_') {
-        std::string word = "";
-        while (isalnum(static_cast<unsigned char>(peek())) || peek() == '_')
-            word += advance();
-
-        if (keywords.find(word) != keywords.end())
-            return {keywords[word], word, currentLine};
-
-        return {T_IDENTIFIER, word, currentLine};
+    // identificadores
+    if (isalpha(static_cast<unsigned char>(c)) || c=='_') {
+        std::string word="";
+        while (isalnum(static_cast<unsigned char>(peek())) || peek()=='_') word += advance();
+        if (keywords.find(word)!=keywords.end()) return {keywords[word],word,currentLine};
+        return {T_IDENTIFIER,word,currentLine};
     }
 
-    // Strings com aspas simples ou duplas + escapes
-    if (c == '"' || c == '\'') {
+    // strings "..." ou '...' com escape
+    if (c=='"' || c=='\'') {
         char quote = c;
-        std::string str = "";
+        std::string str="";
         advance();
-
-        while (peek() != quote && peek() != '\0') {
-            if (peek() == '\\') {
+        while (peek()!=quote && peek()!='\0') {
+            if (peek()=='\\') {
                 advance();
-                char escaped = peek();
-                switch (escaped) {
-                    case 'n': str += '\n'; break;
-                    case 't': str += '\t'; break;
-                    case 'r': str += '\r'; break;
-                    case '\\': str += '\\'; break;
-                    case '"': str += '"'; break;
-                    case '\'': str += '\''; break;
-                    default: str += escaped;
-                }
+                char e = peek();
+                switch(e){ case 'n':str+='\n';break; case 't':str+='\t';break; case 'r':str+='\r';break; case '\\':str+='\\';break; case '"':str+='"';break; case '\'':str+='\'';break; default:str+=e; }
                 advance();
             } else {
-                if (peek() == '\n') currentLine++;
+                if (peek()=='\n') currentLine++;
                 str += advance();
             }
         }
-
-        if (peek() == quote) advance();
-        return {T_STRING_LIT, str, currentLine};
+        if (peek()==quote) advance();
+        return {T_STRING_LIT,str,currentLine};
     }
 
-    //Erro léxico
-    std::string errorChar = "";
-    errorChar += advance();
-    return {T_ERROR, errorChar, currentLine};
+    std::string err=""; err+=advance();
+    return {T_ERROR,err,currentLine};
 }
