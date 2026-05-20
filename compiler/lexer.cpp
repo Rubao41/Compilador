@@ -1,13 +1,13 @@
 #include "Lexer.hpp"
 #include <cctype>
 
-//Construtor 
-Lexer::Lexer(std::string sourceCode){
-    source = sourceCode;
-    pos = 0;
-    currentLine = 1;
-
-    keywords ={
+    //Construtor 
+    Lexer::Lexer(std::string sourceCode){
+        source = sourceCode;
+        pos = 0;
+        currentLine = 1;
+    
+        keywords ={
             {"int", T_INT_TYPE},
             {"string", T_STRING_TYPE},
             {"bool", T_BOOL_TYPE},
@@ -90,9 +90,14 @@ Token Lexer::nextToken(){
     if (isdigit(static_cast<unsigned char>(c))) {
         std::string num = "";
 
-        if (c == '0') {
-            num += advance();
-            char p = peek();
+            if (peek() == '=') {
+                advance();
+                return {T_GREATER_EQUAL, ">=", currentLine};
+            }
+            return {T_GREATER, ">", currentLine};
+    }
+    if (c == '<') {
+        advance();
 
             if (p=='x'||p=='X') {
                 num += advance();
