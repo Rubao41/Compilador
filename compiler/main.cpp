@@ -28,3 +28,13 @@ do{
 
     return 0;
 }
+
+Lexer lexer(codigoTeste);
+    Parser parser(lexer);
+    
+    std::cout << "--- Compilando a Odyssey ---\n";
+    auto arvoreSintatica = parser.parseProgram(); 
+    
+    std::cout << "--- Executando a Odyssey ---\n";
+    Evaluator evaluator;
+    evaluator.run(arvoreSintatica.get()); 
