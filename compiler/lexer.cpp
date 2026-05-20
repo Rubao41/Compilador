@@ -22,40 +22,38 @@
             {"null", T_NULL}
     };
 }
-    //Função para ler caracter sem avanaçar
-    char Lexer::peek() {
-        if (pos >= source.length()) return '\0';
-        return source[pos];
-    }
+//Função para ler caracter sem avançar
+char Lexer::peek() {
+    if (pos >= (int)source.length()) return '\0';
+    return source[pos];
+}
 
-    //Função para pegar caracter e avançar
-    char Lexer::advance() {
-        char c = peek();
-        pos++;
-        return c;
-    }
+//Função para pegar caracter e avançar
+char Lexer::advance() {
+    char c = peek();
+    pos++;
+    return c;
+}
 
-    //Ignorar espaços em branco e quebras de linha
-    void Lexer::skipWhitespace() {
-        while (pos < source.length() && isspace(static_cast<unsigned char>(peek()))) {
-            if (peek() == '\n') {
-                currentLine++; //Conta as linhas 
-            }
-            advance();
-        }
+//Ignorar espaços em branco e quebras de linha
+void Lexer::skipWhitespace() {
+    while (pos < (int)source.length() && isspace(static_cast<unsigned char>(peek()))) {
+        if (peek() == '\n') currentLine++;
+        advance();
     }
+}
 
-//Pede a proxíma "palavra"
+//Pede a próxima "palavra"
 Token Lexer::nextToken(){
     skipWhitespace();
 
-        if (pos >= source.length()) {
-            return {T_EOF, "EOF", currentLine};
-        }
+    if (pos >= (int)source.length()) {
+        return {T_EOF, "EOF", currentLine};
+    }
 
     char c = peek();
 
-    // identifica simbolos e delimitadores
+    // símbolos
     switch (c){
         case ';': advance(); return {T_SEMICOLON, ";", currentLine};
         case '{': advance(); return {T_OPEN_CURLY, "{", currentLine};
@@ -64,31 +62,33 @@ Token Lexer::nextToken(){
         case ')': advance(); return {T_CLOSE_PAREN, ")", currentLine};
         case '+': advance(); return {T_PLUS, "+", currentLine};
         case '-': advance(); return {T_MINUS, "-", currentLine};
-        case '/': advance(); return {T_DIVIDE, "/", currentLine};
     }
 
-    if (c == '=') {
+    // comentários ou divisão
+    if (c == '/') {
         advance();
-
-        if (peek() == '=') {
+        if (peek() == '/') { while (peek()!='\n' && peek()!='\0') advance(); return nextToken(); }
+        if (peek() == '*') {
             advance();
-            return {T_EQUAL, "==", currentLine};
-        }
-        return {T_ASSIGN, "=", currentLine};
-    }
-    if ( c == '*') {
-        advance();
-
-            if (peek() == '*'){ //Olha o próximo caracter
+            while (peek()!='\0') {
+                if (peek()=='*' && pos+1<(int)source.length() && source[pos+1]=='/') { advance(); advance(); break; }
+                if (peek()=='\n') currentLine++;
                 advance();
-                return {T_EXPONENT, "**", currentLine};
             }
-
-        //Se não for '**', é apenas '*'
-            return {T_MULTIPLY, "*", currentLine};
+            return nextToken();
+        }
+        return {T_DIVIDE, "/", currentLine};
     }
-    if (c == '>') {
-        advance();
+
+    if (c == '=') { advance(); if (peek()=='='){advance(); return {T_EQUAL,"==",currentLine};} return {T_ASSIGN,"=",currentLine}; }
+    if (c == '*') { advance(); if (peek()=='*'){advance(); return {T_EXPONENT,"**",currentLine};} return {T_MULTIPLY,"*",currentLine}; }
+    if (c == '>') { advance(); if (peek()=='='){advance(); return {T_GREATER_EQUAL,">=",currentLine};} return {T_GREATER,">",currentLine}; }
+    if (c == '<') { advance(); if (peek()=='='){advance(); return {T_LESS_EQUAL,"<=",currentLine};} return {T_LESS,"<",currentLine}; }
+    if (c == '!') { advance(); if (peek()=='='){advance(); return {T_NOT_EQUAL,"!=",currentLine};} return {T_ERROR,"!",currentLine}; }
+
+    // números: dec / real / hex / bin / oct
+    if (isdigit(static_cast<unsigned char>(c))) {
+        std::string num = "";
 
             if (peek() == '=') {
                 advance();
@@ -99,61 +99,63 @@ Token Lexer::nextToken(){
     if (c == '<') {
         advance();
 
-            if (peek() == '=') {
-                advance();
-                return {T_LESS_EQUAL, "<=", currentLine};
-            }
-            return {T_LESS, "<", currentLine};
-    }
-    if (c == '!') {
-        advance();
-
-            if (peek() == '=') {
-                advance();
-                return {T_NOT_EQUAL, "!=", currentLine};
-            }
-            return {T_ERROR, "!", currentLine};
-    }
-
-    //Indentifica números
-        if (isdigit(static_cast<unsigned char>(c))) {
-            std::string num = "";
-            while (isdigit(static_cast<unsigned char>(peek()))) {
+            if (p=='x'||p=='X') {
                 num += advance();
+                if (!isxdigit(static_cast<unsigned char>(peek()))) return {T_ERROR,num,currentLine};
+                while (isxdigit(static_cast<unsigned char>(peek()))) num += advance();
+                return {T_NUMBER,num,currentLine};
             }
-            return {T_NUMBER, num, currentLine};
+            if (p=='b'||p=='B') {
+                num += advance();
+                if (peek()!='0' && peek()!='1') return {T_ERROR,num,currentLine};
+                while (peek()=='0'||peek()=='1') num += advance();
+                return {T_NUMBER,num,currentLine};
+            }
+            if (p=='o'||p=='O') {
+                num += advance();
+                if (peek()<'0'||peek()>'7') return {T_ERROR,num,currentLine};
+                while (peek()>='0'&&peek()<='7') num += advance();
+                return {T_NUMBER,num,currentLine};
+            }
         }
 
-    //Identifica palavras reservadas
-        if (isalpha(static_cast<unsigned char>(c)) || c == '_') {
-            std::string word = "";
-            while (isalnum(static_cast<unsigned char>(peek())) || peek() == '_') {
-                word += advance();
-            }
+        while (isdigit(static_cast<unsigned char>(peek()))) num += advance();
 
-            //Verifica se é reservada
-            if (keywords.find(word) != keywords.end()) {
-                return {keywords[word], word, currentLine};
-            }
-            //Se não, é variável
-            return {T_IDENTIFIER, word, currentLine};
+        if (peek()=='.' && pos+1<(int)source.length() && isdigit(static_cast<unsigned char>(source[pos+1]))) {
+            num += advance();
+            while (isdigit(static_cast<unsigned char>(peek()))) num += advance();
         }
+        return {T_NUMBER,num,currentLine};
+    }
 
-    //Identifica strings 
-        if (c == '"') {
-            std::string str = "";
-            advance();
-            while (peek() != '"' && peek() != '\0') {
+    // identificadores
+    if (isalpha(static_cast<unsigned char>(c)) || c=='_') {
+        std::string word="";
+        while (isalnum(static_cast<unsigned char>(peek())) || peek()=='_') word += advance();
+        if (keywords.find(word)!=keywords.end()) return {keywords[word],word,currentLine};
+        return {T_IDENTIFIER,word,currentLine};
+    }
+
+    // strings "..." ou '...' com escape
+    if (c=='"' || c=='\'') {
+        char quote = c;
+        std::string str="";
+        advance();
+        while (peek()!=quote && peek()!='\0') {
+            if (peek()=='\\') {
+                advance();
+                char e = peek();
+                switch(e){ case 'n':str+='\n';break; case 't':str+='\t';break; case 'r':str+='\r';break; case '\\':str+='\\';break; case '"':str+='"';break; case '\'':str+='\'';break; default:str+=e; }
+                advance();
+            } else {
+                if (peek()=='\n') currentLine++;
                 str += advance();
             }
-            if (peek() == '"')
-                advance();
-            return {T_STRING_LIT, str, currentLine};
         }
-
-    //Erro léxico ou caracter inválido
-        std::string errorChar = "";
-        errorChar += advance();
-        return {T_ERROR, errorChar, currentLine};
+        if (peek()==quote) advance();
+        return {T_STRING_LIT,str,currentLine};
     }
 
+    std::string err=""; err+=advance();
+    return {T_ERROR,err,currentLine};
+}

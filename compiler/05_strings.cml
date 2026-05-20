@@ -1,0 +1,5 @@
+print("Olá, mundo!");
+print('Olá, mundo!');
+print("aspas \" duplas");
+print('aspas \' simples');
+print("barra \\ invertida");

@@ -1,0 +1,4 @@
+int _x = 1;
+int abc123 = 2;
+int a_b_c = 3;
+print(_x);
