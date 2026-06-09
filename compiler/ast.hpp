@@ -82,3 +82,8 @@ struct Program : Node {
     std::vector<std::unique_ptr<Node>> statements;
     Program(std::vector<std::unique_ptr<Node>> stmts) : statements(std::move(stmts)) {}
 };
+
+struct BlockStmt : Node {
+    std::vector<std::unique_ptr<Node>> statements;
+    BlockStmt(std::vector<std::unique_ptr<Node>> stmts) : statements(std::move(stmts)) {}
+};

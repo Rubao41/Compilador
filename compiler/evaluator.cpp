@@ -28,6 +28,7 @@ class Evaluator {
         void executeAssign(const AssignStmt* stmt);
         void executePrint(const PrintStmt* stmt);
         void executeInput(const InputStmt* stmt);
+        void executeBlock(const BlockStmt* stmt);
 };
 
 OdysseyValue Evaluator::eval(Node* node) {
@@ -50,45 +51,64 @@ OdysseyValue Evaluator::eval(Node* node) {
         OdysseyValue left = eval(bin->left.get());
         OdysseyValue right = eval(bin->right.get());
 
-        if (left.type != right.type) {
-            throw std::runtime_error("Erro Semantico: tipos incompativeis para a operacao matematica.");
+        if (bin->op == "+"){
+            if (left.type == OdysseyValue::STRING && right.type == OdysseyValue::STRING){
+                return {OdysseyValue::STRING, 0, left.strVal + right.strVAl, false};
+            }
+            if (left.type == OdysseyValue::INT && right.type == OdysseyValue::INT){
+                return {OdysseyValue::INT, left.numVal + right.numVal, "", false};
+            }
+            throw std::runtime_error("Erro Semantico: tipos incompativeis para a operacao +.");
         }
-        if (bin->op == "+") return {OdysseyValue::INT, left.numVal + right.numVal, "", false};
+        
+        //Operações Matemáticas de Inteiros
+        if (left.type != OdysseyValue::INT || right.type != OdysseyValue::INT) {
+            throw std::runtime_error("Erro Semantico: operandos matematicos devem ser inteiros.");
+        }
         if (bin->op == "-") return {OdysseyValue::INT, left.numVal - right.numVal, "", false};
         if (bin->op == "*") return {OdysseyValue::INT, left.numVal * right.numVal, "", false};
         if (bin->op == "/") return {OdysseyValue::INT, left.numVal / right.numVal, "", false};
         if (bin->op == "**") return {OdysseyValue::INT, std::pow(left.numVal, right.numVal), "", false};
-        if (bin->op == ">") return {OdysseyValue::INT, (left.numVal > right.numVal) ? 1 : 0, "", false};
-        if (bin->op == "<") return {OdysseyValue::INT, (left.numVal < right.numVal) ? 1 : 0, "", false};
-        if (bin->op == "==") return {OdysseyValue::INT, (left.numVal == right.numVal) ? 1 : 0, "", false};
-        if (bin->op == "!=") return {OdysseyValue::INT, (left.numVal != right.numVal) ? 1 : 0, "", false};
+
+        //RElacionais (BOOL)
+        if (bin->op == ">") return {OdysseyValue::BOOL, 0, "", (left.numVal > right.numVal)};
+        if (bin->op == ">=") return {OdysseyValue::BOOL, 0, "", (left.numVal >= right.numVal)};
+        if (bin->op == "<") return {OdysseyValue::BOOL, 0, "", (left.numVal < right.numVal)};
+        if (bin->op == "<=") return {OdysseyValue::BOOL, 0, "", (left.numVal <= right.numVal)};
+        if (bin->op == "==") return {OdysseyValue::BOOL, 0, "",(left.numVal == right.numVal)};
+        if (bin->op == "!=") return {OdysseyValue::BOOL, 0, "",(left.numVal != right.numVal)};
     }
 
-    throw std::runtime_error("No de expressao desconhecido");
+    throw std::runtime_error("Nó de expressao desconhecido");
 }
 
-//execução do while
+//Execução do while
 void Evaluator::executeWhile(const WhileStmt* stmt){
-    //avalia a condição
-    while (std::abs(eval(stmt->condition.get())) !=0){
+    while (true) {
+        OdysseyValue cond = eval(stmt-> condition.get());
+        if (cond.type != OdysseyValue::BOOL){
+            throw std::runtime_error("Erro: A condeição de while deve ser do tipo booleano.");
+        }
+        if (!cond.boolVal) break; //Sai do laço se for false
+
         run(stmt->body.get());
     }
 }
 
-//execução do for
+//Execução do for
 void Evaluator::executeFor(const ForStmt* stmt){
-    // roda o init 1 vez
     if (stmt->init){
-        run(stmt->init.get());
+        run (stmt->init.get());
     }
+    while (true) {
+        OdysseyValue cond = eval(stmt->condition.get());
+        if (cond.type != OdysseyValue::BOOL){
+            throw std::runtime_error("Erro: a condição do for deve ser do tipo booleano.");
+        }
+        if (!cond.boolVal) break;
 
-    //testa a condição
-    while ( std::abs(eval(stmt->condition.get())) !=0){
-
-        //executa o body
         run(stmt->body.get());
 
-        //executa o final do bloco
         if (stmt->increment){
             run(stmt->increment.get());
         }
@@ -149,5 +169,24 @@ void Evaluator::executeInput(const InputStmt* stmt) {
         } catch (...) {
             throw std::runtime_error("Erro Semantico: Voce tentou digitar um texto numa variavel do tipo int.");
         }
+    }
+}
+
+void Evaluator::run(Node* node) {
+    if (!node) return;
+
+    if (auto* prog = dynamic_cast<Program*>(node)) executeProgram(prog);
+    else if (auto* blk = dynamic_cast<BlockStmt*>(node)) executeBlock(blk);
+    else if (auto* decl = dynamic_cast<Decl*>(node)) executeDecl(decl);
+    else if (auto* assign = dynamic_cast<AssignStmt*>(node)) executeAssign(assign);
+    else if (auto* print = dynamic_cast<PrintStmt*>(node)) executePrint(print);
+    else if (auto* input = dynamic_cast<InputStmt*>(node)) executeInput(input);
+    else if (auto* whileStmt = dynamic_cast<WhileStmt*>(node)) executeWhile(whileStmt);
+    else if (auto* forStmt = dynamic_cast<ForStmt*>(node)) executeFor(forStmt);
+}
+
+void Evaluator::executeBlock(const BlockStmt* stmt) {
+    for (const auto& s : stmt-> statements){
+        run(s.get());
     }
 }

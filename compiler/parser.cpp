@@ -1,4 +1,8 @@
-//parse while
+std::unique_ptr<Node> Parser::parseExpression(){
+    return parseComparison();
+}
+
+//Parse while
 std::unique_ptr<Node> Parser::parseWhileStmt(){
     expect(T_WHILE);
     expect(T_OPEN_PAREN);
@@ -10,37 +14,29 @@ std::unique_ptr<Node> Parser::parseWhileStmt(){
     return std::make_unique<WhileStmt>(std::move(cond), std::move(body));
 }
 
-//parse for
+//Parse for
 std::unique_ptr<Node> Parser::parseForStmt(){
     expect(T_FOR);
     expect(T_OPEN_PAREN);
 
     std::unique_ptr<Node> init = nullptr;
-    if (current().type == T_INT_TYPE || current().type == T_STRING_TYPE || current().type == T_BOOL_TYPE || current().type == T_IDENTIFIER) {
-        if (current().type == T_INT_TYPE || current().type == T_STRING_TYPE || current().type == T_BOOL_TYPE) {
-            // parseDecl sem consumir ; no final
-            std::string typeName = current().value;
-            advance();
-            std::string varName = current().value;
-            expect(T_IDENTIFIER);
-            expect(T_ASSIGN);
-            auto expr = parseComparison();
-            init = std::make_unique<Decl>(typeName, varName, std::move(expr));
-        } else {
-            // parseAssign sem consumir ; no final
-            std::string varName = current().value;
-            expect(T_IDENTIFIER);
-            expect(T_ASSIGN);
-            auto expr = parseComparison();
-            init = std::make_unique<AssignStmt>(varName, std::move(expr));
-        }
+    //Tenta declarar variável
+    if (current().type == T_INT_TYPE || current().type == T_STRING_TYPE || current().type == T_BOOL_TYPE) {
+        init = parseDecl(false); //Não exige ';'
+    }
+    //Tenta atualizar variável existente
+    else if (current().type == T_IDENTIFIER){
+        init = parseAssign(false); //Não exige ';'
     }
     expect(T_SEMICOLON);
 
     auto cond = parseExpression();
     expect(T_SEMICOLON);
 
-    auto inc = parseExpression();
+    std::unique_ptr<Node> inc = nullptr;
+    if (current().type == T_IDENTIFIER) {
+        inc = parseAssign(false); //O incremento i = i + 1 é um Assignment, não uma Expression isolada!
+    }
     expect(T_CLOSE_PAREN);
 
     auto body = parseBlock();
@@ -122,7 +118,7 @@ std::unique_ptr<Node> Parser::parseFactor() {
         expect(T_CLOSE_PAREN);
         return expr;
     }
-    throw std::runtime_error("Erro de sintaxe na linha " + std::string(t.line));
+    throw std::runtime_error("Erro de sintaxe na linha " + std::to_string(t.line));
 }
 
 std::unique_ptr<Node> Parser::parseStatement() {
@@ -149,31 +145,29 @@ std::unique_ptr<Node> Parser::parseStatement() {
     throw std::runtime_error("Erro de sintaxe na linha " + std::to_string(t.line));
 }
 
-std::unique_ptr<Node> Parser::parseDecl() {
+std::unique_ptr<Node> Parser::parseDecl(bool consumeSemicolon) {
     std::string typeName = current().value;
     advance();
 
     std::string varName = current().value;
     expect(T_IDENTIFIER);
-  
     expect(T_ASSIGN);
 
     auto expr = parseComparison(); 
 
-    expect(T_SEMICOLON);
+    if (consumeSemicolon) expect(T_SEMICOLON);
 
     return std::make_unique<Decl>(typeName, varName, std::move(expr));
 }
 
-std::unique_ptr<Node> Parser::parseAssign() {
+std::unique_ptr<Node> Parser::parseAssign(bool consumeSemicolon) {
     std::string varName = current().value;
     expect(T_IDENTIFIER);
-
     expect(T_ASSIGN);
 
     auto expr = parseComparison();
 
-    expect(T_SEMICOLON);
+    if (consumeSemicolon) expect(T_SEMICOLON);
 
     return std::make_unique<AssignStmt>(varName, std::move(expr));
 }
@@ -228,5 +222,5 @@ std::unique_ptr<Node> Parser::parseBlock() {
     
     expect(T_CLOSE_CURLY); 
     
-    return std::make_unique<Program>(std::move(statements));
+    return std::make_unique<BlockStmt>(std::move(statements));
 }
