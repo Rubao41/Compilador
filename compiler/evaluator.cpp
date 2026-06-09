@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <cmath>
+#include <vector>
 
 struct OdysseyValue {
     enum Type { INT, STRING, BOOL} type;
@@ -15,12 +16,28 @@ struct OdysseyValue {
 
 class Evaluator {
     private:
-        std::map<std::string, OdysseyValue> env;
+        std::vector<std::map<std::string, OdysseyValue>> envStack;
+        
+        void pushScope() { envStack.emplace_back(); }
+    void popScope() { if (!envStack.empty()) envStack.pop_back(); }
+
+    bool varExistsInCurrentScope(const std::string& name) const {
+    if (envStack.empty()) return false;
+    return envStack.back().find(name) != envStack.back().end();
+    }
+
+    bool varExistsAnywhere(const std::string& name) const {
+    for (auto it = envStack.rbegin(); it != envStack.rend(); ++it) {
+        if (it->find(name) != it->end()) return true;
+    }
+    return false;
+    }
     
     public:
         void run(Node* node);
         OdysseyValue eval(Node* node);
 
+        Evaluator();
         void executeProgram(const Program* prog);
         void executeWhile(const WhileStmt* stmt);
         void executeFor(const ForStmt* stmt);
@@ -31,56 +48,108 @@ class Evaluator {
         void executeBlock(const BlockStmt* stmt);
 };
 
+//Construtor
+Evaluator::Evaluator() { 
+    pushScope(); } // cria escopo global
+
+OdysseyValue& Evaluator::getVarRef(const std::string& name) {
+    for (auto it = envStack.rbegin(); it != envStack.rend(); ++it){
+        auto found = it->find(name);
+        if (found != it->end()) return found->second;
+    }
+    throw std::runtime_error("Erro Semantico: Variavel '" + name + "' não declarada.");
+}
+
+void Evaluator::declareVar(const std::string& name, const OdysseyValue& val){
+    if (envStack.empty()) pushScope();
+    envStack.back()[name] = val;
+}
+
+void Evaluator::setVar(const std::string& name, const OdysseyValue& val){
+    for (auto it = envStack.rbegin(); it != envStack.rend(); ++it){
+        auto found = it->find(name);
+        if (found != it->end()) { found->second = val; return;}
+    }
+    throw std::runtime_error("Erro Semantico: Variavel '" + name +"' não declarada.");
+}
+
 OdysseyValue Evaluator::eval(Node* node) {
+    if (!node) throw std::runtime_error("Nó de expressao nulo");
+
+    // Literais
     if (auto* num = dynamic_cast<NumLiteral*>(node)) {
         return {OdysseyValue::INT, num->value, "", false};
     }
-
     if (auto* str = dynamic_cast<StringLiteral*>(node)) {
         return {OdysseyValue::STRING, 0, str->value, false};
     }
 
+    // Referência a variável
     if (auto* var = dynamic_cast<VarRef*>(node)) {
-        if (env.find(var->name) == env.end()) {
-            throw std::runtime_error("Erro Semantico: Variavel '" + var->name + "' nao declarada");
-        }
-        return env[var->name];
+        return getVarRef(var->name);
     }
 
+    // Operações binárias
     if (auto* bin = dynamic_cast<BinOp*>(node)) {
         OdysseyValue left = eval(bin->left.get());
         OdysseyValue right = eval(bin->right.get());
 
-        if (bin->op == "+"){
-            if (left.type == OdysseyValue::STRING && right.type == OdysseyValue::STRING){
-                return {OdysseyValue::STRING, 0, left.strVal + right.strVAl, false};
+        // Soma / concatenação
+        if (bin->op == "+") {
+            if (left.type == OdysseyValue::STRING && right.type == OdysseyValue::STRING) {
+                return {OdysseyValue::STRING, 0, left.strVal + right.strVal, false};
             }
-            if (left.type == OdysseyValue::INT && right.type == OdysseyValue::INT){
+            if (left.type == OdysseyValue::INT && right.type == OdysseyValue::INT) {
                 return {OdysseyValue::INT, left.numVal + right.numVal, "", false};
             }
             throw std::runtime_error("Erro Semantico: tipos incompativeis para a operacao +.");
         }
-        
-        //Operações Matemáticas de Inteiros
-        if (left.type != OdysseyValue::INT || right.type != OdysseyValue::INT) {
-            throw std::runtime_error("Erro Semantico: operandos matematicos devem ser inteiros.");
-        }
-        if (bin->op == "-") return {OdysseyValue::INT, left.numVal - right.numVal, "", false};
-        if (bin->op == "*") return {OdysseyValue::INT, left.numVal * right.numVal, "", false};
-        if (bin->op == "/") return {OdysseyValue::INT, left.numVal / right.numVal, "", false};
-        if (bin->op == "**") return {OdysseyValue::INT, std::pow(left.numVal, right.numVal), "", false};
 
-        //RElacionais (BOOL)
-        if (bin->op == ">") return {OdysseyValue::BOOL, 0, "", (left.numVal > right.numVal)};
-        if (bin->op == ">=") return {OdysseyValue::BOOL, 0, "", (left.numVal >= right.numVal)};
-        if (bin->op == "<") return {OdysseyValue::BOOL, 0, "", (left.numVal < right.numVal)};
-        if (bin->op == "<=") return {OdysseyValue::BOOL, 0, "", (left.numVal <= right.numVal)};
-        if (bin->op == "==") return {OdysseyValue::BOOL, 0, "",(left.numVal == right.numVal)};
-        if (bin->op == "!=") return {OdysseyValue::BOOL, 0, "",(left.numVal != right.numVal)};
+        // Operações matemáticas (exigem INT)
+        if (bin->op == "-" || bin->op == "*" || bin->op == "/" || bin->op == "**") {
+            if (left.type != OdysseyValue::INT || right.type != OdysseyValue::INT) {
+                throw std::runtime_error("Erro Semantico: operandos matematicos devem ser inteiros.");
+            }
+            if (bin->op == "-") return {OdysseyValue::INT, left.numVal - right.numVal, "", false};
+            if (bin->op == "*") return {OdysseyValue::INT, left.numVal * right.numVal, "", false};
+            if (bin->op == "/") {
+                if (right.numVal == 0) throw std::runtime_error("Erro de execucao: divisao por zero.");
+                return {OdysseyValue::INT, left.numVal / right.numVal, "", false};
+            }
+            if (bin->op == "**") {
+                double res = std::pow(left.numVal, right.numVal);
+                return {OdysseyValue::INT, res, "", false};
+            }
+        }
+
+        // Igualdade / desigualdade (suporta int/string/bool)
+        if (bin->op == "==" || bin->op == "!=") {
+            if (left.type != right.type) throw std::runtime_error("Erro Semantico: comparacao entre tipos diferentes.");
+            bool result = false;
+            if (left.type == OdysseyValue::INT) result = (left.numVal == right.numVal);
+            else if (left.type == OdysseyValue::STRING) result = (left.strVal == right.strVal);
+            else if (left.type == OdysseyValue::BOOL) result = (left.boolVal == right.boolVal);
+            if (bin->op == "==") return {OdysseyValue::BOOL, 0, "", result};
+            else return {OdysseyValue::BOOL, 0, "", !result};
+        }
+
+        // Relacionais >, >=, <, <= (apenas para números)
+        if (bin->op == ">" || bin->op == ">=" || bin->op == "<" || bin->op == "<=") {
+            if (left.type != OdysseyValue::INT || right.type != OdysseyValue::INT) {
+                throw std::runtime_error("Erro Semantico: operadores relacionais exigem operandos inteiros.");
+            }
+            if (bin->op == ">") return {OdysseyValue::BOOL, 0, "", (left.numVal > right.numVal)};
+            if (bin->op == ">=") return {OdysseyValue::BOOL, 0, "", (left.numVal >= right.numVal)};
+            if (bin->op == "<") return {OdysseyValue::BOOL, 0, "", (left.numVal < right.numVal)};
+            if (bin->op == "<=") return {OdysseyValue::BOOL, 0, "", (left.numVal <= right.numVal)};
+        }
+
+        throw std::runtime_error("Erro Semantico: operador binario desconhecido '" + bin->op + "'.");
     }
 
     throw std::runtime_error("Nó de expressao desconhecido");
 }
+
 
 //Execução do while
 void Evaluator::executeWhile(const WhileStmt* stmt){
@@ -94,6 +163,7 @@ void Evaluator::executeWhile(const WhileStmt* stmt){
         run(stmt->body.get());
     }
 }
+
 
 //Execução do for
 void Evaluator::executeFor(const ForStmt* stmt){
@@ -128,14 +198,19 @@ void Evaluator::executeDecl(const Decl* stmt) {
         throw std::runtime_error("Erro: tentando colocar valor nao booleano");
     }
 
-    env[stmt->varName] = val;
+    declareVar(stmt->varName, val);
 }
 
 void Evaluator::executeAssign(const AssignStmt* stmt) {
-    if (env.find(stmt->varName) == env.end()) {
+    if (!varExistsAnywhere(stmt->varName)) {
         throw std::runtime_error("Erro: Variavel '" + stmt->varName + "' não declarada");
     }
-    env[stmt->varName] = eval(stmt->expr.get());
+    OdysseyValue current = getVarRef(stmt->varName);
+    OdysseyValue newVal = eval(stmt->expr.get());
+    if (current.type != newVal.type) {
+        throw std::runtime_error("Erro: atrbuição com tipo diferente para variavel");
+    }
+    setVar(stmt->varName, newVal);
 }
 
 void Evaluator::executePrint(const PrintStmt* stmt) {
@@ -153,22 +228,48 @@ void Evaluator::executeProgram(const Program* prog) {
 }
 
 void Evaluator::executeInput(const InputStmt* stmt) {
-    if (env.find(stmt->varName) == env.end()) {
+    if (!varExistsAnywhere(stmt->varName)) {
         throw std::runtime_error("Erro: Variavel '" + stmt->varName + "' nao declarada antes do input.");
     }
 
     std::string entrada;
     std::getline(std::cin, entrada);
 
-    if (env[stmt->varName].type == OdysseyValue::STRING) {
-        env[stmt->varName].strVal = entrada;
-    } 
-    else if (env[stmt->varName].type == OdysseyValue::INT) {
-        try {
-            env[stmt->varName].numVal = std::stod(entrada);
-        } catch (...) {
-            throw std::runtime_error("Erro Semantico: Voce tentou digitar um texto numa variavel do tipo int.");
+    OdysseyValue &target = getVarRef(stmt->varName);
+    if (target.type == OdysseyValue::STRING) {
+        target.strVal = entrada;
+    } else if (target.type == OdysseyValue::INT){
+        //Validação estrita: aceita apenas inteiros
+        std::string s = entrada;
+        //Trim espaços 
+        size_t start = s.find_first_not_of(" \t\r\n");
+        size_t end = s.find_last_not_of(" \t\r\n");
+        if (start == std::string::npos)
+            throw std::runtime_error("Erro Semantico: entrada vazia para variavel int '" + stmt->varName + "'.");
+        s = s.substr(start, end - start + 1);
+
+        bool neg = false;
+        size_t i = 0;
+        if (s[0] == '+' || s[0] == '-') {neg = (s[0] == '-'); i = 1;}
+        if (i >= s.size()) 
+            throw std::runtime_error("Erro Semantico: formato invalido para int em '" + stmt->varName + "'.");
+        for (; i < s.size(); ++i){
+            if (!std::isdigit(static_cast<unsigned char>(s[i])))
+                throw std::runtime_error("Erro Semantico: Voce tentou digitar um texto numa variavel do tipo int.");
         }
+        //Conversão segura
+        try{
+            target.numVal = std::stoll(s);
+        } catch (...){
+            throw std::runtime_error("Erro Semantico: conversão para int falhou em '" + stmt->varName + "'.");
+        }
+    } else if (target.type == OdysseyValue::BOOL){
+        //Aceita "true/false"
+        std::string lower;
+        for (char ch : entrada) lower += std::tolower(static_cast<unsigned char>(ch));
+        if (lower == "true") target.boolVal = true;
+        else if (lower == "false") target.boolVal = false;
+        else throw std::runtime_error("Erro Semantico: entrada invalida para bool em '" + stmt->varName + "'.");
     }
 }
 
@@ -186,7 +287,10 @@ void Evaluator::run(Node* node) {
 }
 
 void Evaluator::executeBlock(const BlockStmt* stmt) {
+    pushScope();
     for (const auto& s : stmt-> statements){
         run(s.get());
     }
+    popScope();
 }
+

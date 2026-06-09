@@ -86,38 +86,47 @@ Token Lexer::nextToken(){
     if (c == '<') { advance(); if (peek()=='='){advance(); return {T_LESS_EQUAL,"<=",currentLine};} return {T_LESS,"<",currentLine}; }
     if (c == '!') { advance(); if (peek()=='='){advance(); return {T_NOT_EQUAL,"!=",currentLine};} return {T_ERROR,"!",currentLine}; }
 
-    // números: dec / real / hex / bin / oct
+    // números: dec / real
     if (isdigit(static_cast<unsigned char>(c))) {
-        std::string num = "";
+    std::string num;
+    // consome dígitos iniciais (inclui o primeiro)
+    while (isdigit(static_cast<unsigned char>(peek()))) num += advance();
 
-            if (peek() == '=') {
-                advance();
-                return {T_GREATER_EQUAL, ">=", currentLine};
-            }
-            return {T_GREATER, ">", currentLine};
+    // parte fracionária opcional
+    if (peek() == '.' && pos+1 < (int)source.length() && isdigit(static_cast<unsigned char>(source[pos+1]))) {
+        num += advance(); // consome '.'
+        while (isdigit(static_cast<unsigned char>(peek()))) num += advance();
     }
-    if (c == '<') {
-        advance();
+    return {T_NUMBER, num, currentLine};
+    }
+    
+    //Tratamento de literais com prefixo 0x, 0b, 0o
+    if (c == '0'){
+        std::string num; 
+        num += advance(); //Consome '0
+        char p = peek();
 
-            if (p=='x'||p=='X') {
+        if (p=='x'||p=='X') {
                 num += advance();
                 if (!isxdigit(static_cast<unsigned char>(peek()))) return {T_ERROR,num,currentLine};
                 while (isxdigit(static_cast<unsigned char>(peek()))) num += advance();
                 return {T_NUMBER,num,currentLine};
-            }
-            if (p=='b'||p=='B') {
+        }
+        if (p=='b'||p=='B') {
                 num += advance();
                 if (peek()!='0' && peek()!='1') return {T_ERROR,num,currentLine};
                 while (peek()=='0'||peek()=='1') num += advance();
                 return {T_NUMBER,num,currentLine};
-            }
-            if (p=='o'||p=='O') {
+        }
+        if (p=='o'||p=='O') {
                 num += advance();
                 if (peek()<'0'||peek()>'7') return {T_ERROR,num,currentLine};
                 while (peek()>='0'&&peek()<='7') num += advance();
                 return {T_NUMBER,num,currentLine};
-            }
         }
+        while (isdigit(static_cast<unsigned char>(peek()))) num += advance();
+        return {T_NUMBER, num, currentLine};
+}
 
         while (isdigit(static_cast<unsigned char>(peek()))) num += advance();
 
@@ -139,23 +148,28 @@ Token Lexer::nextToken(){
     // strings "..." ou '...' com escape
     if (c=='"' || c=='\'') {
         char quote = c;
-        std::string str="";
-        advance();
-        while (peek()!=quote && peek()!='\0') {
-            if (peek()=='\\') {
+        std::string str;
+        advance(); //Consome a aspa inicial
+        while (peek()!= quote && peek() != '\0') {
+            if (peek() == '\\') {
                 advance();
                 char e = peek();
-                switch(e){ case 'n':str+='\n';break; case 't':str+='\t';break; case 'r':str+='\r';break; case '\\':str+='\\';break; case '"':str+='"';break; case '\'':str+='\'';break; default:str+=e; }
+                switch (e) { 
+                    case 'n':str += '\n' ;break;
+                    case 't':str += '\t';break;
+                    case 'r':str += '\r';break;
+                    case '\\':str += '\\';break;
+                    case '"':str += '"';break;
+                    case '\'':str += '\'';break;
+                    default:str += e; break;
+                 }
                 advance();
             } else {
-                if (peek()=='\n') currentLine++;
+                if (peek() == '\n') currentLine++;
                 str += advance();
             }
         }
-        if (peek()==quote) advance();
-        return {T_STRING_LIT,str,currentLine};
+        if (peek() == quote) advance();
+        return {T_STRING_LIT, str, currentLine};
     }
 
-    std::string err=""; err+=advance();
-    return {T_ERROR,err,currentLine};
-}
