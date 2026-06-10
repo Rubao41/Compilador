@@ -4,7 +4,11 @@ bool b = true;
 bool c = false;
 null;
 func soma() { return; }
+print (s);
 print(a);
 input(a);
 for (a = 0; a < 10; a = a + 1) { print(a); }
-while (a > 0) { a = a - 1; }
+while (a > 0) {
+    print (a);
+    a = a - 1; 
+}

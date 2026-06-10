@@ -87,3 +87,18 @@ struct BlockStmt : Node {
     std::vector<std::unique_ptr<Node>> statements;
     BlockStmt(std::vector<std::unique_ptr<Node>> stmts) : statements(std::move(stmts)) {}
 };
+
+struct BoolLiteral : Node {
+    bool value;
+    BoolLiteral(bool v) : value(v) {}
+};
+
+struct NullStmt : Node {};
+// Nó vazio que não faz nada
+
+struct FuncDecl : Node {
+    std::string name;
+    FuncDecl(std::string n) : name(std::move(n)) {}
+};
+
+struct ReturnStmt : Node {}; // Nó para ignorar o return por enquanto

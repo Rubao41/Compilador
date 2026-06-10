@@ -3,3 +3,9 @@ int b = 0xFF;
 int c = 0b1010;
 int d = 0o77;
 int e = 12.34;
+
+print (a);
+print (b);
+print (c);
+print (d);
+print (e);

@@ -1,3 +1,11 @@
+#include <memory>
+#include <string>
+#include "ast.hpp"
+#include "Token.hpp"
+#include "Parser.hpp"
+#include <stdexcept>
+
+
 std::unique_ptr<Node> Parser::parseExpression(){
     return parseComparison();
 }
@@ -48,7 +56,8 @@ std::unique_ptr<Node> Parser::parseForStmt(){
 std::unique_ptr<Node> Parser::parseComparison() {
     auto left = parseAdditive();
 
-    while (current().type == T_GREATER || current().type == T_LESS || current().type == T_EQUAL || current().type == T_NOT_EQUAL) {
+    while (current().type == T_GREATER || current().type == T_LESS || current().type == T_EQUAL || 
+    current().type == T_NOT_EQUAL || current().type == T_GREATER_EQUAL || current().type == T_LESS_EQUAL) {
         std::string op = current().value;
         advance();
         auto right = parseAdditive();
@@ -100,9 +109,38 @@ std::unique_ptr<Node> Parser::parseExponent() {
 std::unique_ptr<Node> Parser::parseFactor() {
     Token t = current();
 
+    if (t.type == T_ERROR) {
+        throw std::runtime_error("Erro Lexico na linha " + std::to_string(t.line) + ": " + t.value);
+    }
+
     if (t.type == T_NUMBER) {
-        advance ();
-        return std::make_unique<NumLiteral>(std::stod(t.value));
+        advance();
+        double val = 0;
+        
+        if (t.value.length() > 2 && t.value[0] == '0') {
+            char base = t.value[1];
+            if (base == 'x' || base == 'X') {
+                val = std::stoi(t.value.substr(2), nullptr, 16);
+            } else if (base == 'b' || base == 'B') {
+                val = std::stoi(t.value.substr(2), nullptr, 2);
+            } else if (base == 'o' || base == 'O') {
+                val = std::stoi(t.value.substr(2), nullptr, 8);
+            } else {
+                val = std::stod(t.value);
+            }
+        } else {
+            val = std::stod(t.value);
+        }
+        
+        return std::make_unique<NumLiteral>(val);
+    }
+    else if (t.type == T_TRUE) {
+        advance();
+        return std::make_unique<BoolLiteral>(true);
+    }
+    else if (t.type == T_FALSE) {
+        advance();
+        return std::make_unique<BoolLiteral>(false);
     }
     else if (t.type == T_STRING_LIT) {
         advance();
@@ -118,8 +156,10 @@ std::unique_ptr<Node> Parser::parseFactor() {
         expect(T_CLOSE_PAREN);
         return expr;
     }
+    
     throw std::runtime_error("Erro de sintaxe na linha " + std::to_string(t.line));
 }
+
 
 std::unique_ptr<Node> Parser::parseStatement() {
     Token t = current();
@@ -141,6 +181,27 @@ std::unique_ptr<Node> Parser::parseStatement() {
     else if (t.type == T_WHILE) {
         return parseWhileStmt();
     }
+    else if (t.type == T_RETURN) {
+        advance();
+        expect(T_SEMICOLON);
+        return std::make_unique<ReturnStmt>();
+    }
+    else if (t.type == T_NULL) {
+    advance();
+    expect(T_SEMICOLON);
+    return std::make_unique<NullStmt>();
+    }
+    else if (t.type == T_FUNC) {
+        advance();
+        std::string funcName = current().value;
+        expect(T_IDENTIFIER);
+        expect(T_OPEN_PAREN);
+        expect(T_CLOSE_PAREN);
+
+    auto body = parseBlock(); // Vai ler o { return; }
+
+    return std::make_unique<FuncDecl>(funcName);
+}
 
     throw std::runtime_error("Erro de sintaxe na linha " + std::to_string(t.line));
 }
@@ -223,4 +284,26 @@ std::unique_ptr<Node> Parser::parseBlock() {
     expect(T_CLOSE_CURLY); 
     
     return std::make_unique<BlockStmt>(std::move(statements));
+}
+
+// Implementações do Parser
+Parser::Parser(Lexer& lexer) : lexer(lexer) {
+    lookahead = lexer.nextToken();
+}
+
+Token Parser::current() const {
+    return lookahead;
+}
+
+void Parser::advance() {
+    lookahead = lexer.nextToken();
+}
+
+void Parser::expect(TokenType type) {
+    if (current().type != type) {
+        throw std::runtime_error("Erro de Sintaxe na linha " + std::to_string(current().line) + 
+                                 ": Esperado " + tokenTypeName(type) + 
+                                 " mas encontrou '" + current().value + "'");
+    }
+    advance();
 }

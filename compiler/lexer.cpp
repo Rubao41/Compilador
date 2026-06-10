@@ -86,55 +86,38 @@ Token Lexer::nextToken(){
     if (c == '<') { advance(); if (peek()=='='){advance(); return {T_LESS_EQUAL,"<=",currentLine};} return {T_LESS,"<",currentLine}; }
     if (c == '!') { advance(); if (peek()=='='){advance(); return {T_NOT_EQUAL,"!=",currentLine};} return {T_ERROR,"!",currentLine}; }
 
-    // números: dec / real
+    // números: dec / real / hex / bin / oct
     if (isdigit(static_cast<unsigned char>(c))) {
-    std::string num;
-    // consome dígitos iniciais (inclui o primeiro)
-    while (isdigit(static_cast<unsigned char>(peek()))) num += advance();
-
-    // parte fracionária opcional
-    if (peek() == '.' && pos+1 < (int)source.length() && isdigit(static_cast<unsigned char>(source[pos+1]))) {
-        num += advance(); // consome '.'
-        while (isdigit(static_cast<unsigned char>(peek()))) num += advance();
-    }
-    return {T_NUMBER, num, currentLine};
-    }
-    
-    //Tratamento de literais com prefixo 0x, 0b, 0o
-    if (c == '0'){
-        std::string num; 
-        num += advance(); //Consome '0
-        char p = peek();
-
-        if (p=='x'||p=='X') {
-                num += advance();
-                if (!isxdigit(static_cast<unsigned char>(peek()))) return {T_ERROR,num,currentLine};
-                while (isxdigit(static_cast<unsigned char>(peek()))) num += advance();
-                return {T_NUMBER,num,currentLine};
+        std::string num;
+        
+        // Verifica se é uma base especial espiando a próxima letra
+        if (c == '0' && pos + 1 < (int)source.length()) {
+            char p = source[pos + 1]; 
+            if (p == 'x' || p == 'X' || p == 'b' || p == 'B' || p == 'o' || p == 'O') {
+                num += advance(); // consome o '0'
+                char base = advance(); // consome a letra base
+                num += base;
+                
+                if (base == 'x' || base == 'X') {
+                    while (isxdigit(static_cast<unsigned char>(peek()))) num += advance();
+                } else if (base == 'b' || base == 'B') {
+                    while (peek() == '0' || peek() == '1') num += advance();
+                } else if (base == 'o' || base == 'O') {
+                    while (peek() >= '0' && peek() <= '7') num += advance();
+                }
+                return {T_NUMBER, num, currentLine};
+            }
         }
-        if (p=='b'||p=='B') {
-                num += advance();
-                if (peek()!='0' && peek()!='1') return {T_ERROR,num,currentLine};
-                while (peek()=='0'||peek()=='1') num += advance();
-                return {T_NUMBER,num,currentLine};
-        }
-        if (p=='o'||p=='O') {
-                num += advance();
-                if (peek()<'0'||peek()>'7') return {T_ERROR,num,currentLine};
-                while (peek()>='0'&&peek()<='7') num += advance();
-                return {T_NUMBER,num,currentLine};
-        }
-        while (isdigit(static_cast<unsigned char>(peek()))) num += advance();
-        return {T_NUMBER, num, currentLine};
-}
 
+        // Se não for base especial, processa como número normal
         while (isdigit(static_cast<unsigned char>(peek()))) num += advance();
 
-        if (peek()=='.' && pos+1<(int)source.length() && isdigit(static_cast<unsigned char>(source[pos+1]))) {
-            num += advance();
+        // parte fracionária opcional
+        if (peek() == '.' && pos + 1 < (int)source.length() && isdigit(static_cast<unsigned char>(source[pos + 1]))) {
+            num += advance(); // consome '.'
             while (isdigit(static_cast<unsigned char>(peek()))) num += advance();
         }
-        return {T_NUMBER,num,currentLine};
+        return {T_NUMBER, num, currentLine};
     }
 
     // identificadores
@@ -169,7 +152,13 @@ Token Lexer::nextToken(){
                 str += advance();
             }
         }
-        if (peek() == quote) advance();
+        if (peek() == '\0'){
+            return {T_ERROR, "String não fechado", currentLine};
+        }
+        advance(); 
         return {T_STRING_LIT, str, currentLine};
     }
 
+    // token desconhecido
+    return {T_ERROR, std::string(1, c), currentLine};
+}

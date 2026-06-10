@@ -2,3 +2,8 @@ int x = 2 + 3 * 4;
 int y = (2 + 3) * 4;
 int z = 10 / 2 - 1;
 int w = 2 ** 3;
+
+print (x);
+print (y);
+print (z);
+print (w);
